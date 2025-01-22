@@ -1,6 +1,7 @@
 package keiken.localexplorer.Controller;
 
 import com.google.maps.errors.ApiException;
+import com.google.maps.model.PlaceType;
 import com.google.maps.model.PlacesSearchResponse;
 import keiken.localexplorer.Model.GeminiResponse;
 import keiken.localexplorer.Service.GoogleMapsService;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/places")
@@ -29,17 +31,20 @@ public class PlacesController {
     @GetMapping("/nearby")
     public PlacesSearchResponse findNearbyPlaces(
             @RequestParam double latitude,
-            @RequestParam double longitude
+            @RequestParam double longitude,
+            @RequestParam(required = false) String placeType
     ) throws ApiException, InterruptedException, IOException {
-        logger.info("Received request: " + latitude + ", lon: " + longitude);
-        return googleMapsService.findNearbyPlaces(latitude, longitude).getBody();
+        logger.info("Received request: " + latitude + ", lon: " + longitude + ", type: " + placeType);
+        Optional<PlaceType> type = Optional.ofNullable(placeType).map(s -> PlaceType.valueOf(s.toUpperCase()));
+        return googleMapsService.findNearbyPlaces(latitude, longitude, type).getBody();
     }
 
     @GetMapping("/recommendations")
     public Mono<ResponseEntity<GeminiResponse>> getRecommendations(
             @RequestParam double latitude,
-            @RequestParam double longitude
+            @RequestParam double longitude,
+            @RequestParam(required = false) String placeType
     ){
-        return recommendationService.getRecommendations(latitude, longitude);
+        return recommendationService.getRecommendations(latitude, longitude, placeType);
     }
 }

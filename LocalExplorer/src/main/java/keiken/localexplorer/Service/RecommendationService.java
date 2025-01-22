@@ -14,7 +14,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
-
+import java.util.Optional;
+import com.google.maps.model.PlaceType;
 @Service
 public class RecommendationService {
     private final WebClient webClient;
@@ -31,9 +32,11 @@ public class RecommendationService {
         this.googleMapsService = googleMapsService;
     }
 
-    public Mono<ResponseEntity<GeminiResponse>> getRecommendations(double latitude, double longitude) {
+    public Mono<ResponseEntity<GeminiResponse>> getRecommendations(double latitude, double longitude, String placeType) {
+        Optional<PlaceType> type = Optional.ofNullable(placeType).map(s -> PlaceType.valueOf(s.toUpperCase()));
         Mono<ResponseEntity<WeatherResponse>> weather = weatherService.getCurrentWeather(latitude + "," + longitude);
-        Mono<ResponseEntity<com.google.maps.model.PlacesSearchResponse>> nearbyPlaces = Mono.fromCallable(() -> googleMapsService.findNearbyPlaces(latitude, longitude));
+        Mono<ResponseEntity<com.google.maps.model.PlacesSearchResponse>> nearbyPlaces = Mono.fromCallable(() -> googleMapsService.findNearbyPlaces(latitude, longitude, type));
+
 
         return Mono.zip(weather, nearbyPlaces)
                 .flatMap(tuple -> {
@@ -45,12 +48,12 @@ public class RecommendationService {
                     WeatherResponse weatherData = weatherResponse.getBody();
                     com.google.maps.model.PlacesSearchResponse placesData = placesResponseEntity.getBody();
 
-                    String prompt = createPrompt(latitude, longitude, weatherData, placesData);
+                    String prompt = createPrompt(latitude, longitude, weatherData, placesData, placeType);
                     return callGeminiApi(prompt);
                 });
 
     }
-    private String createPrompt(double latitude, double longitude, WeatherResponse weatherData, com.google.maps.model.PlacesSearchResponse placesData) {
+    private String createPrompt(double latitude, double longitude, WeatherResponse weatherData, com.google.maps.model.PlacesSearchResponse placesData, String placeType) {
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
         String currentTime = now.format(timeFormatter);
@@ -58,9 +61,12 @@ public class RecommendationService {
         String currentDay = now.format(dayFormatter);
 
         StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append("You are a travel assistant. Based on the following information, recommend some places to visit.\n");
+        promptBuilder.append("You are a travel assistant. Based on the following information, recommend some places to visit. Consider the weather, the time of day, and the location.\n");
         promptBuilder.append("Today is ").append(currentDay).append(", and the current time is ").append(currentTime).append(".\n");
         promptBuilder.append("The current location is latitude: ").append(latitude).append(", and longitude: ").append(longitude).append(".\n");
+        if (placeType != null){
+            promptBuilder.append("The user has requested places of type ").append(placeType).append(".\n");
+        }
 
         if(weatherData != null && weatherData.getCurrent() != null && weatherData.getCurrent().getCondition() != null){
             promptBuilder.append("The weather is ").append(weatherData.getCurrent().getCondition().getText()).append(" and the current temperature is ").append(weatherData.getCurrent().getTempC()).append(" degrees Celsius.\n");
@@ -70,17 +76,17 @@ public class RecommendationService {
         }
 
         promptBuilder.append("Nearby places are:\n");
-        if(placesData != null && placesData.results != null){
+        if (placesData != null && placesData.results != null && placesData.results.length > 0) {
             List<com.google.maps.model.PlacesSearchResult> results =  Arrays.asList(placesData.results);
             for (int i = 0; i < results.size(); i++){
                 com.google.maps.model.PlacesSearchResult result = results.get(i);
                 promptBuilder.append(i + 1).append(" - ").append(result.name).append("\n");
             }
-        }else{
-            promptBuilder.append("There is no nearby places information\n");
+        } else {
+            promptBuilder.append("There is no nearby places information for this type.\n");
         }
 
-        promptBuilder.append("Considering the time of day, the location and the weather conditions, Recommend some activities and places to visit. Provide your answer as an ordered list.");
+        promptBuilder.append("Taking into account the weather, the time of day, and the location, Recommend some activities and places to visit. Provide your answer as an ordered list.");
         return promptBuilder.toString();
     }
 

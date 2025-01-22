@@ -20,6 +20,7 @@ interface GeminiResponse {
   }[];
 }
 
+const placeTypes = ["restaurant", "cafe", "park", "museum", "bar"];
 const PlacesComponent: React.FC = () => {
   const [location, setLocation] = useState<GeolocationPosition | null>(null);
   const [places, setPlaces] = useState<PlacesResponse | null>(null);
@@ -28,6 +29,9 @@ const PlacesComponent: React.FC = () => {
     null
   );
   const [loading, setLoading] = useState<boolean>(false);
+  const [selectedPlaceType, setSelectedPlaceType] = useState<string | null>(
+    null
+  );
 
   const fetchLocationAndRecommendations = useCallback(async () => {
     setLoading(true);
@@ -40,14 +44,15 @@ const PlacesComponent: React.FC = () => {
       //Get recommendations
       await fetchRecommendations(
         position.coords.latitude,
-        position.coords.longitude
+        position.coords.longitude,
+        selectedPlaceType
       );
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedPlaceType]);
 
   const getCurrentLocation = (): Promise<GeolocationPosition> => {
     return new Promise((resolve, reject) => {
@@ -68,7 +73,8 @@ const PlacesComponent: React.FC = () => {
 
   const fetchRecommendations = async (
     latitude: number,
-    longitude: number
+    longitude: number,
+    placeType: string | null
   ): Promise<void> => {
     try {
       const response = await axios.get<GeminiResponse>(
@@ -77,6 +83,7 @@ const PlacesComponent: React.FC = () => {
           params: {
             latitude,
             longitude,
+            placeType,
           },
         }
       );
@@ -85,8 +92,21 @@ const PlacesComponent: React.FC = () => {
       setError(err.message);
     }
   };
+
+  const handlePlaceTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedPlaceType(e.target.value);
+  };
+
   return (
     <div>
+      <select value={selectedPlaceType || ""} onChange={handlePlaceTypeChange}>
+        <option value="">All Types</option>
+        {placeTypes.map((type) => (
+          <option key={type} value={type}>
+            {type}
+          </option>
+        ))}
+      </select>
       <button onClick={fetchLocationAndRecommendations}>
         Get Recommendations
       </button>
