@@ -76,7 +76,7 @@ public class RecommendationService {
         }
 
         promptBuilder.append("Nearby places are:\n");
-        if (placesData != null && placesData.results != null && placesData.results.length > 0) {
+        if(placesData != null && placesData.results != null && placesData.results.length > 0) {
             List<com.google.maps.model.PlacesSearchResult> results =  Arrays.asList(placesData.results);
             for (int i = 0; i < results.size(); i++){
                 com.google.maps.model.PlacesSearchResult result = results.get(i);
@@ -86,7 +86,7 @@ public class RecommendationService {
             promptBuilder.append("There is no nearby places information for this type.\n");
         }
 
-        promptBuilder.append("Taking into account the weather, the time of day, and the location, Recommend some activities and places to visit. Provide your answer as an ordered list.");
+        promptBuilder.append("Taking into account the weather, the time of day, and the location, Recommend some activities and places to visit. Provide your answer as an ordered list, each recommendation must be separated by ||| and each line inside a recommendation must be separated by ~~~.");
         return promptBuilder.toString();
     }
 

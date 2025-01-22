@@ -1,9 +1,16 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import axios from "axios";
+import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 
 interface Place {
   place_id: string;
   name: string;
+  geometry: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
 }
 
 interface PlacesResponse {
@@ -21,6 +28,7 @@ interface GeminiResponse {
 }
 
 const placeTypes = ["restaurant", "cafe", "park", "museum", "bar"];
+
 const PlacesComponent: React.FC = () => {
   const [location, setLocation] = useState<GeolocationPosition | null>(null);
   const [places, setPlaces] = useState<PlacesResponse | null>(null);
@@ -32,6 +40,23 @@ const PlacesComponent: React.FC = () => {
   const [selectedPlaceType, setSelectedPlaceType] = useState<string | null>(
     null
   );
+
+  const center = useMemo(() => {
+    if (!location) {
+      return {
+        lat: 0,
+        lng: 0,
+      };
+    }
+    return {
+      lat: location.coords.latitude,
+      lng: location.coords.longitude,
+    };
+  }, [location]);
+  const { isLoaded } = useJsApiLoader({
+    id: "google-map-script",
+    googleMapsApiKey: import.meta.env.VITE_REACT_APP_GOOGLE_MAPS_API_KEY || "",
+  });
 
   const fetchLocationAndRecommendations = useCallback(async () => {
     setLoading(true);
@@ -88,13 +113,59 @@ const PlacesComponent: React.FC = () => {
         }
       );
       setRecommendations(response.data);
+      if (response.data && response.data.candidates) {
+        await fetchPlaces(latitude, longitude, placeType);
+      }
     } catch (err: any) {
       setError(err.message);
     }
   };
 
+  const fetchPlaces = async (
+    latitude: number,
+    longitude: number,
+    placeType: string | null
+  ): Promise<void> => {
+    try {
+      const response = await axios.get<PlacesResponse>(
+        "http://localhost:8787/places/nearby",
+        {
+          params: {
+            latitude,
+            longitude,
+            placeType,
+          },
+        }
+      );
+      setPlaces(response.data);
+    } catch (error: any) {
+      setError(error.message);
+    }
+  };
+
   const handlePlaceTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedPlaceType(e.target.value);
+  };
+
+  const renderRecommendations = () => {
+    if (!recommendations || !recommendations.candidates) {
+      return null;
+    }
+
+    return (
+      <div>
+        <h2>Recommendations</h2>
+        <ol>
+          {recommendations.candidates.map((candidate, candidateIndex) => (
+            <li key={candidateIndex}>
+              {candidate.content.parts.map((part, partIndex) => (
+                <React.Fragment key={partIndex}>{part.text}</React.Fragment>
+              ))}
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
   };
 
   return (
@@ -120,18 +191,32 @@ const PlacesComponent: React.FC = () => {
         </div>
       )}
 
-      {recommendations && recommendations.candidates && (
-        <div>
-          <h2>Recommendations</h2>
-          <ul>
-            {recommendations.candidates.map((candidate) =>
-              candidate.content.parts.map((part, index) => (
-                <li key={index}>{part.text}</li>
-              ))
-            )}
-          </ul>
-        </div>
+      {isLoaded ? (
+        <GoogleMap
+          mapContainerClassName="map-container"
+          center={center}
+          zoom={5}
+          options={{
+            disableDefaultUI: true,
+            zoomControl: true,
+          }}
+        >
+          {places?.results.map((place: Place) => (
+            <Marker
+              key={place.place_id}
+              position={{
+                lat: place.geometry.location.lat,
+                lng: place.geometry.location.lng,
+              }}
+              label={place.name}
+            />
+          ))}
+        </GoogleMap>
+      ) : (
+        <p>Loading Map...</p>
       )}
+
+      {renderRecommendations()}
     </div>
   );
 };

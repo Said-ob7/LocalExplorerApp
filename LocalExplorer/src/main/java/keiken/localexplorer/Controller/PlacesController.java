@@ -35,7 +35,9 @@ public class PlacesController {
             @RequestParam(required = false) String placeType
     ) throws ApiException, InterruptedException, IOException {
         logger.info("Received request: " + latitude + ", lon: " + longitude + ", type: " + placeType);
-        Optional<PlaceType> type = Optional.ofNullable(placeType).map(s -> PlaceType.valueOf(s.toUpperCase()));
+        Optional<PlaceType> type = Optional.ofNullable(placeType)
+                .filter(s -> !s.isEmpty())
+                .map(s -> PlaceType.valueOf(s.toUpperCase()));
         return googleMapsService.findNearbyPlaces(latitude, longitude, type).getBody();
     }
 
