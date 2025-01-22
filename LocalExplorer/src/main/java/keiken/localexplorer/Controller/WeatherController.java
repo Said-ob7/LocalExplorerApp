@@ -1,10 +1,10 @@
 package keiken.localexplorer.Controller;
 
-import keiken.localexplorer.Config.ApiConfig;
 import keiken.localexplorer.Model.WeatherResponse;
 import keiken.localexplorer.Service.WeatherService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -19,7 +19,7 @@ public class WeatherController {
         this.weatherService = weatherService;
     }
     @GetMapping
-    public Mono<WeatherResponse> getWeather(@RequestParam String location) {
+    public Mono<ResponseEntity<WeatherResponse>> getWeather(@RequestParam String location) {
         logger.info("Location parameter: " + location);
         return weatherService.getCurrentWeather(location);
     }
