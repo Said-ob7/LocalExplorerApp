@@ -66,3 +66,8 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.map-container {
+  height: 500px; /* Or any other desired height */
+  width: 1000px; /* Or any other desired width */
+}

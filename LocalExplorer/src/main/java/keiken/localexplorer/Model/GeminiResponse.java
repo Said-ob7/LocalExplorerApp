@@ -1,7 +1,11 @@
 package keiken.localexplorer.Model;
 
-import java.util.List;
+import lombok.Data;
 
+import java.util.List;
+import java.util.Map;
+
+@Data
 public class GeminiResponse {
     private List<Candidate> candidates;
 
@@ -24,27 +28,16 @@ public class GeminiResponse {
             this.content = content;
         }
         public static class Content{
-            private List<Part> parts;
+            private List<Map<String, String>> parts;
 
-            public List<Part> getParts() {
+            public List<Map<String, String>> getParts() {
                 return parts;
             }
 
-            public void setParts(List<Part> parts) {
+            public void setParts(List<Map<String, String>> parts) {
                 this.parts = parts;
             }
 
-            public static class Part {
-                private String text;
-
-                public String getText() {
-                    return text;
-                }
-
-                public void setText(String text) {
-                    this.text = text;
-                }
-            }
         }
     }
 }

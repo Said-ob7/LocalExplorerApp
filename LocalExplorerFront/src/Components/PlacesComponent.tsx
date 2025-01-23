@@ -1,6 +1,12 @@
 import React, { useState, useCallback, useMemo } from "react";
 import axios from "axios";
-import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
+import {
+  GoogleMap,
+  useJsApiLoader,
+  Marker,
+  DirectionsService,
+  DirectionsRenderer,
+} from "@react-google-maps/api";
 
 interface Place {
   place_id: string;
@@ -28,9 +34,9 @@ interface GeminiResponse {
 }
 
 const placeTypes = ["restaurant", "cafe", "park", "museum", "bar"];
-
 const PlacesComponent: React.FC = () => {
   const [location, setLocation] = useState<GeolocationPosition | null>(null);
+  const [userLocationMarker, setUserLocationMarker] = useState<any>(null);
   const [places, setPlaces] = useState<PlacesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<GeminiResponse | null>(
@@ -40,6 +46,8 @@ const PlacesComponent: React.FC = () => {
   const [selectedPlaceType, setSelectedPlaceType] = useState<string | null>(
     null
   );
+  const [directionsResponse, setDirectionsResponse] = useState<any>(null);
+  const [selectedDestination, setSelectedDestination] = useState<any>(null);
 
   const center = useMemo(() => {
     if (!location) {
@@ -53,6 +61,7 @@ const PlacesComponent: React.FC = () => {
       lng: location.coords.longitude,
     };
   }, [location]);
+
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: import.meta.env.VITE_REACT_APP_GOOGLE_MAPS_API_KEY || "",
@@ -61,12 +70,17 @@ const PlacesComponent: React.FC = () => {
   const fetchLocationAndRecommendations = useCallback(async () => {
     setLoading(true);
     setError(null);
-
+    setSelectedDestination(null); // Clear the selected destination
+    setDirectionsResponse(null); // Clear the directions response
     try {
-      //Get location
+      // Get location
       const position = await getCurrentLocation();
       setLocation(position);
-      //Get recommendations
+      setUserLocationMarker({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+      // Get recommendations
       await fetchRecommendations(
         position.coords.latitude,
         position.coords.longitude,
@@ -113,9 +127,7 @@ const PlacesComponent: React.FC = () => {
         }
       );
       setRecommendations(response.data);
-      if (response.data && response.data.candidates) {
-        await fetchPlaces(latitude, longitude, placeType);
-      }
+      await fetchPlaces(latitude, longitude, placeType);
     } catch (err: any) {
       setError(err.message);
     }
@@ -142,31 +154,59 @@ const PlacesComponent: React.FC = () => {
       setError(error.message);
     }
   };
-
   const handlePlaceTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedPlaceType(e.target.value);
   };
 
   const renderRecommendations = () => {
-    if (!recommendations || !recommendations.candidates) {
+    if (
+      !recommendations ||
+      !recommendations.candidates ||
+      recommendations.candidates.length === 0
+    ) {
       return null;
     }
+    const currentRecommendation = recommendations.candidates[0];
+    const recommendationText = currentRecommendation.content.parts[0].text;
 
     return (
-      <div>
-        <h2>Recommendations</h2>
-        <ol>
-          {recommendations.candidates.map((candidate, candidateIndex) => (
-            <li key={candidateIndex}>
-              {candidate.content.parts.map((part, partIndex) => (
-                <React.Fragment key={partIndex}>{part.text}</React.Fragment>
-              ))}
-            </li>
-          ))}
-        </ol>
+      <div className="recommendation-card">
+        <h2>Recommendation</h2>
+        <p>{recommendationText}</p>
       </div>
     );
   };
+
+  const handleMarkerClick = (place: Place) => {
+    if (location) {
+      setSelectedDestination(place.geometry.location);
+      const directionsService = new google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: {
+            lat: location.coords.latitude,
+            lng: location.coords.longitude,
+          },
+          destination: {
+            lat: place.geometry.location.lat,
+            lng: place.geometry.location.lng,
+          },
+          travelMode: google.maps.TravelMode.WALKING,
+        },
+        directionsCallback
+      );
+    }
+  };
+
+  const directionsCallback = useCallback((response: any) => {
+    if (response !== null) {
+      if (response.status === "OK") {
+        setDirectionsResponse(response);
+      } else {
+        console.error("response: ", response);
+      }
+    }
+  }, []);
 
   return (
     <div>
@@ -183,24 +223,20 @@ const PlacesComponent: React.FC = () => {
       </button>
       {loading && <p>Loading...</p>}
       {error && <p>Error: {error}</p>}
-      {location && (
-        <div>
-          <h2>Your Location</h2>
-          <p>Latitude: {location.coords.latitude}</p>
-          <p>Longitude: {location.coords.longitude}</p>
-        </div>
-      )}
-
+      {location && <div></div>}
       {isLoaded ? (
         <GoogleMap
           mapContainerClassName="map-container"
           center={center}
-          zoom={5}
+          zoom={15}
           options={{
             disableDefaultUI: true,
             zoomControl: true,
           }}
         >
+          {userLocationMarker && (
+            <Marker position={userLocationMarker} label="You" />
+          )}
           {places?.results.map((place: Place) => (
             <Marker
               key={place.place_id}
@@ -209,13 +245,16 @@ const PlacesComponent: React.FC = () => {
                 lng: place.geometry.location.lng,
               }}
               label={place.name}
+              onClick={() => handleMarkerClick(place)}
             />
           ))}
+          {selectedDestination && directionsResponse && (
+            <DirectionsRenderer directions={directionsResponse} />
+          )}
         </GoogleMap>
       ) : (
         <p>Loading Map...</p>
       )}
-
       {renderRecommendations()}
     </div>
   );

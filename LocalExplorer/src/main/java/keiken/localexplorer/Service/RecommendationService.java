@@ -33,7 +33,9 @@ public class RecommendationService {
     }
 
     public Mono<ResponseEntity<GeminiResponse>> getRecommendations(double latitude, double longitude, String placeType) {
-        Optional<PlaceType> type = Optional.ofNullable(placeType).map(s -> PlaceType.valueOf(s.toUpperCase()));
+        Optional<PlaceType> type = Optional.ofNullable(placeType)
+                .filter(s -> !s.isEmpty())
+                .map(s -> PlaceType.valueOf(s.toUpperCase()));
         Mono<ResponseEntity<WeatherResponse>> weather = weatherService.getCurrentWeather(latitude + "," + longitude);
         Mono<ResponseEntity<com.google.maps.model.PlacesSearchResponse>> nearbyPlaces = Mono.fromCallable(() -> googleMapsService.findNearbyPlaces(latitude, longitude, type));
 
@@ -86,7 +88,7 @@ public class RecommendationService {
             promptBuilder.append("There is no nearby places information for this type.\n");
         }
 
-        promptBuilder.append("Taking into account the weather, the time of day, and the location, Recommend some activities and places to visit. Provide your answer as an ordered list, each recommendation must be separated by ||| and each line inside a recommendation must be separated by ~~~.");
+        promptBuilder.append("Taking into account the weather, the time of day, and the location, Recommend some activities and places to visit. Do not include any number, except for the number that marks each of the recommendations.");
         return promptBuilder.toString();
     }
 
