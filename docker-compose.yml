@@ -1,0 +1,26 @@
+version: "3.8"
+services:
+  backend:
+    image: saidob7/local-explorer-backend:v1
+    ports:
+      - "8787:8787"
+    environment:
+      - MYSQL_HOST=host.docker.internal
+    depends_on:
+      - db
+
+  frontend:
+    image: saidob7/local-explorer-frontend:v1
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+  db:
+    image: mysql:8
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: Said&10112001
+      MYSQL_DATABASE: local_explorer
+    ports:
+      - "3306:3306"

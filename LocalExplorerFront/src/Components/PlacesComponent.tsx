@@ -4,7 +4,6 @@ import {
   GoogleMap,
   useJsApiLoader,
   Marker,
-  DirectionsService,
   DirectionsRenderer,
 } from "@react-google-maps/api";
 
